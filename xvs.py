@@ -1,5 +1,6 @@
 """TODO: One-line module synopsis <73 char ending in a ('.')."""
-__all__ = ['stpresso', 'spresso']
+__all__ = ['stpresso', 'spresso', 'stpresso_mc', 'splicev1', 'fluxsmooth_tmc',
+           'mvfrc', 'xs_usm']
 __author__ = 'xyx98'
 __date__ = '27 November 2019'
 __credits__ = """Didée for the original stpresso, spresso, nonlin_usm functions.
