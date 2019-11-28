@@ -524,55 +524,77 @@ def mvfrc(clip: vs.VideoNode, it=140, scp=15, num: int = 60000,
 
     return clip
 
-def xsUSM(src=None,blur=11,limit=1,elast=4,maskclip=None,plane=[0]):
+
+# TODO: typehints
+def xs_usm(src: vs.VideoNode = None,
+           blur: Union[int, List[int], vs.VideoNode] = 11, limit=1, elast=4,
+           maskclip: vs.VideoNode = None, planes: List[int] = None) \
+        -> vs.VideoNode:
+    """xyx98's simple unsharp mask.
+
+    :param src: input clip
+        :bit depth: TODO
+        :color family: TODO
+        :float precision: TODO
+        :sample type: TODO
+        :subsampling: TODO
+    :param blur: way to get blurclip default means RemoveGrain(mode=11)
+                 (Default value = 11)
+        you can also use a list like [1,2,1,2,4,2,1,2,1],
+        means Convolution(matrix=[1,2,1,2,4,2,1,2,1])
+        or you can input a blur clip made by yourself
+    :param limit: way to limit the sharp resault (Default value = 1)
+        =0 no limit
+        >0 use limitfilter thr=limit
+        <0 use repair(mode=-limit)
+    :param elast: elast in LimitFilter, only for limit>0
+                  (Default value = 4)
+    :param maskclip: you can input your own mask to merge result and
+                     source if needed (Default value = None)
+    :param planes: setting which plane or planes to be processed;
+                   defaults to [0] which means only process Y plane
+                   (Default value = None)
+    :return
     """
-    xsUSM: xyx98's simple unsharp mask
-    -----------------------------------------------
-    blur:   way to get blurclip,default is 11,means RemoveGrain(mode=11)
-               you can also use a list like [1,2,1,2,4,2,1,2,1],means Convolution(matrix=[1,2,1,2,4,2,1,2,1])
-               or you can input a blur clip made by yourself
-    limit:  way to limit the sharp resault,default is 3
-               =0 no limit
-               >0 use limitfilter thr=limit
-               <0 use repair(mode=-limit)
-    elast: elast in LimitFilter,only for limit>0
-    maskclip: you can input your own mask to merge resault and source if needed,default is None,means skip this step
-    plane: setting which plane or planes to be processed,default is [0],means only process Y
-    """
-    isGray = src.format.color_family == vs.GRAY
-    def usm(clip=None,blur=11,limit=1,elast=4,maskclip=None):
-        if isinstance(blur,int):
-            blurclip=core.rgvs.RemoveGrain(clip,blur)
-        elif isinstance(blur,list):
-            blurclip=core.std.Convolution(clip,matrix=blur,planes=0)
+    planes = [0] if not planes else planes
+    is_gray = src.format.color_family == vs.GRAY
+
+    def _usm(clip=None, blur_=11, limit_=1, elast_=4, maskclip_=None):
+        if isinstance(blur_, int):
+            blurclip = core.rgvs.RemoveGrain(clip, blur_)
+        elif isinstance(blur_, list):
+            blurclip = core.std.Convolution(clip, matrix=blur_, planes=0)
         else:
-            blurclip=blur
-        diff=core.std.MakeDiff(clip,blurclip,planes=0)
-        sharp = core.std.MergeDiff(clip,diff,planes=0)
-        ###
-        if limit==0:
-            lt=sharp
-        elif limit>0:
-            lt = mvf.LimitFilter(sharp,clip,thr=limit,elast=elast)
-        elif limit<0:
-            lt = core.rgvs.Repair(sharp,clip,-limit)
-        if isinstance(maskclip,vs.VideoNode):
-            m =  core.std.MaskedMerge(lt,clip,maskclip,planes=0)
+            blurclip = blur_
+        diff = core.std.MakeDiff(clip, blurclip, planes=0)
+        sharp = core.std.MergeDiff(clip, diff, planes=0)
+
+        if limit_ == 0:
+            lt = sharp
+        elif limit_ > 0:
+            lt = mvf.LimitFilter(sharp, clip, thr=limit_, elast=elast_)
         else:
-            m = lt
-        return m
-    if isGray:
-        return usm(src,blur,limit,elast,maskclip)
-    else:
-        li=[]
-        for i in range(3):
-            if i in plane:
-                a=usm(getplane(src,i),blur,limit,elast,None if maskclip is None else getplane(maskclip,i))
-            else:
-                a=getplane(src,i)
-            li.append(a)
-        return core.std.ShufflePlanes(li,[0,0,0], vs.YUV)
-    
+            lt = core.rgvs.Repair(sharp, clip, -limit_)
+
+        if isinstance(maskclip_, vs.VideoNode):
+            return core.std.MaskedMerge(lt, clip, maskclip_, planes=0)
+        else:
+            return lt
+
+    if is_gray:
+        return _usm(src, blur, limit, elast, maskclip)
+
+    li = []
+    for i in range(3):
+        if i in planes:
+            a = _usm(plane(src, i), blur, limit, elast,
+                     None if not maskclip else plane(maskclip, i))
+        else:
+            a = plane(src, i)
+        li.append(a)
+
+    return core.std.ShufflePlanes(li, [0, 0, 0], vs.YUV)
+
 def SharpenDetail(src=None,limit=4,thr=32):
     """
     SharpenDetail
@@ -2254,3 +2276,4 @@ STPresso = stpresso
 SPresso = spresso
 STPressoMC = stpresso_mc
 FluxsmoothTMC = fluxsmooth_tmc
+xsUSM = xs_usm
