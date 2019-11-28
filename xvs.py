@@ -1,6 +1,4 @@
 """TODO: One-line module synopsis <73 char ending in a ('.')."""
-from typing import Dict
-
 __all__ = ['stpresso', 'spresso']
 __author__ = 'xyx98'
 __date__ = '27 November 2019'
@@ -16,6 +14,7 @@ Dave <orangechannel@pm.me> for refactoring code.
 
 import re
 from functools import partial
+from typing import Dict
 
 import havsfunc as haf
 import muvsfunc as muf
