@@ -644,86 +644,108 @@ def sharpen_detail(src: vs.VideoNode, limit=4, thr=32) -> vs.VideoNode:
     return last
 
 
-def textsub(input,file,charset=None,fps=None,vfr=None,
-              mod=False,Matrix=None):
-    """
-    ---------------------------
-    textsub
-    ---------------------------
+# TODO: typehints
+def textsub(clip: vs.VideoNode, file, charset=None, fps=None, vfr=None,
+            mod: bool = False, matrix: str = None) -> vs.VideoNode:
+    """It's a port from avs script—textsub16 by mawen1250.
+
     Can support high bit and yuv444&yuv422,but not rgb
     Not recommended for yuv420p8
-    It's a port from avs script—textsub16 by mawen1250,but have some differences
+    ,but have some differences
     ---------------------------
     input,file,charset,fps,vfr: same in vsfilter
-    mod: Choose whether to use(vsfiler or vsfiltermod),deflaut is False,means use vsfilter
-    """
-    def M(a,b):
-        if a <= 1024 and b <= 576:
-            return "601"
-        elif a <= 2048 and b <= 1536:
-            return "709"
-        else :
-            return "2020"
-    
-    funcName = "textsub16"
-    width  = input.width
-    height = input.height
-    bit    = input.format.bits_per_sample
-    U      = core.std.ShufflePlanes(input, 1, colorfamily=vs.GRAY)
-    c_w    = U.width
-    c_h    = U.height
-    w      = width/c_w
-    h      = height/c_h
-    if w==1 and h==1:
-        f  = vs.YUV444P16
-        s  = 0
-    elif  w==2 and h==1:
-        f  = vs.YUV422P16
-        s  = 0.5
-    elif  w==2 and h==2:
-        f  = vs.YUV420P16
-        s  = 0.25
-    else:
-        TypeError(funcName + ': Only support YUV420、YUV422、YUV444')
-    if Matrix is None:
-        Matrix = M(width,height)
-##############
-    def vsmode(clip,file,charset,fps,vfr,mod):
-        core = vs.get_core()
-        if mod == False:
-            last = core.vsf.TextSub(clip,file,charset,fps,vfr)
-        else:
-            last = core.vsfm.TextSubMod(clip,file,charset,fps,vfr)
-        return core.std.Cache(last, make_linear=True)
 
-    def mskE(a,b,depth):
-        core=vs.get_core()
-        expr="x y - abs 1 < 0 255 ?"
-        last = core.std.Expr([a,b], [expr]*3)
-        return core.fmtc.bitdepth(last,bits=depth)
-##############
-    src8  = core.resize.Bilinear(input,format=vs.YUV420P8)
-    sub8  = vsmode(src8,file,charset,fps,vfr,mod)
-    mask  = mskE(src8,sub8,bit)
-    maskY = core.std.ShufflePlanes(mask, 0, colorfamily=vs.GRAY)
-    maskU = core.std.ShufflePlanes(mask, 1, colorfamily=vs.GRAY)
-    maskU = core.resize.Bilinear(maskU,width,height,src_left=s)
-    maskV = core.std.ShufflePlanes(mask, 2, colorfamily=vs.GRAY)
-    maskV = core.resize.Bilinear(maskV,width,height,src_left=s)
-    mask  = mvf.Max(mvf.Max(maskY,maskU),maskV)
-    mask  = core.std.Inflate(mask)
-    maskC = core.resize.Bilinear(mask,c_w,c_h,src_left=-s)#,src_width=c_w,src_height=c_h
-    if w==1 and h==1:
-        mask = core.std.ShufflePlanes(mask,[0,0,0], colorfamily=vs.YUV)
+    :param clip: input clip
+        :bit depth: 8, 9, 10, 12, 14, 16
+        :color family: YUV
+        :float precision: TODO
+        :sample type: TODO
+        :subsampling: 420, 422, 444
+    :param file: TODO: explain
+    :param charset: TODO: explain (Default value = None)
+    :param fps: TODO: explain (Default value = None)
+    :param vfr: TODO: explain (Default value = None)
+    :param mod: chooses whether to use vsfiler (F) or vsfiltermod (T)
+                (Default value = False)
+    :param matrix: TODO: explain (Default value = None)
+    :return: processed clip
+    """
+    def _m(a, b):
+        if a <= 1024 and b <= 576:
+            return '601'
+        elif a <= 2048 and b <= 1536:
+            return '709'
+        else:
+            return '2020'
+
+    width = clip.width
+    height = clip.height
+    bit = clip.format.bits_per_sample
+    u = core.std.ShufflePlanes(clip, 1, colorfamily=vs.GRAY)
+    c_w = u.width
+    c_h = u.height
+    w = width / c_w
+    h = height / c_h
+
+    if w == 1 and h == 1:
+        f = vs.YUV444P16
+        s = 0
+    elif w == 2 and h == 1:
+        f = vs.YUV422P16
+        s = 0.5
+    elif w == 2 and h == 2:
+        f = vs.YUV420P16
+        s = 0.25
     else:
-        mask = core.std.ShufflePlanes([mask,maskC],[0,0,0], colorfamily=vs.YUV)
-################
-    rgb   = core.resize.Bilinear(input,format=vs.RGB24,matrix_in_s=Matrix)
-    sub   = vsmode(rgb,file,charset,fps,vfr,mod)
-    sub   = core.resize.Bilinear(sub,format=f,matrix_s=Matrix)
-    sub   = mvf.Depth(sub,depth=bit)
-    last  = core.std.MaskedMerge(input, sub, mask=mask, planes=[0,1,2])
-    return last
+        TypeError('textsub16: Only supports YUV420 YUV422 YUV444')
+
+    if not matrix:
+        matrix = _m(width, height)
+
+    def _vsmode(clip_, file_, charset_, fps_, vfr_, mod_):
+        if not mod_:
+            last_ = core.vsf.TextSub(clip_, file_, charset_, fps_, vfr_)
+        else:
+            last_ = core.vsfm.TextSubMod(clip_, file_, charset_, fps_, vfr_)
+
+        return core.std.Cache(last_, make_linear=True)
+
+    def _mske(a, b, depth):
+        expr = 'x y - abs 1 < 0 255 ?'
+        last_ = core.std.Expr([a, b], [expr] * 3)
+
+        return core.fmtc.bitdepth(last_, bits=depth)
+
+    src8 = core.resize.Bilinear(clip, format=vs.YUV420P8)
+    sub8 = _vsmode(src8, file, charset, fps, vfr, mod)
+
+    mask = _mske(src8, sub8, bit)
+
+    mask_y = core.std.ShufflePlanes(mask, 0, colorfamily=vs.GRAY)
+    mask_u = core.std.ShufflePlanes(mask, 1, colorfamily=vs.GRAY)
+    mask_u = core.resize.Bilinear(mask_u, width, height, src_left=s)
+    mask_v = core.std.ShufflePlanes(mask, 2, colorfamily=vs.GRAY)
+    mask_v = core.resize.Bilinear(mask_v, width, height, src_left=s)
+
+    mask = mvf.Max(mvf.Max(mask_y, mask_u), mask_v)
+    mask = core.std.Inflate(mask)
+
+    mask_c = core.resize.Bilinear(mask, c_w, c_h, src_left=-s)
+    # TODO: src_width=c_w, src_height=c_h ???
+
+    if w == 1 and h == 1:
+        mask = core.std.ShufflePlanes(mask, [0, 0, 0], colorfamily=vs.YUV)
+    else:
+        mask = core.std.ShufflePlanes([mask, mask_c], [0, 0, 0],
+                                      colorfamily=vs.YUV)
+
+    rgb = core.resize.Bilinear(clip, format=vs.RGB24, matrix_in_s=matrix)
+
+    sub = _vsmode(rgb, file, charset, fps, vfr, mod)
+    sub = core.resize.Bilinear(sub, format=f, matrix_s=matrix)
+    sub = mvf.Depth(sub, depth=bit)
+
+    return core.std.MaskedMerge(clip, sub, mask=mask, planes=[0, 1, 2])
 
 def LazyDering(src,depth=32,diff=8,thr=32):
     """
