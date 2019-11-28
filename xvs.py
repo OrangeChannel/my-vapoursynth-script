@@ -312,23 +312,58 @@ def splicev1(clip=[],num=[],den=[],tc_out="tc v1.txt"):
     last=core.std.AssumeFPS(last,fpsnum=num[0],fpsden=den[0])
     return last
 
-def FluxsmoothTMC(src,tthr=12,s_p={},a_p={},c_p={},planes=[0,1,2]):
-    """
+
+# TODO: typehints
+def fluxsmooth_tmc(src: vs.VideoNode, tthr=12, s_p: Dict = None,
+                   a_p: Dict = None, c_p: Dict = None,
+                   planes: List[int] = None) -> vs.VideoNode:
+    """TODO: One-line synopsis (<73 char) ending in a '.'.
+
     port from https://forum.doom9.org/showthread.php?s=d58237a359f5b1f2ea45591cceea5133&p=1572664#post1572664
-    allow setting parameters for mvtools
+
+    :param src: input clip
+        :bit depth: TODO
+        :color family: TODO
+        :float precision: TODO
+        :sample type: TODO
+        :subsampling: TODO
+    :param tthr: TODO: explain (Default value = 12)
+    :param s_p: TODO: explain (Default value = None)
+    :param a_p: TODO: explain (Default value = None)
+    :param c_p: TODO: explain (Default value = None)
+    :param planes: TODO: explain (Default value = None)
+    :return: processed clip
     """
-    super_p={"pel":2,"sharp":1,}
-    analyse_p={"truemotion":False,"delta":1,"blksize":16,"overlap":8,}
+    s_p = {} if not s_p else s_p
+    a_p = {} if not a_p else a_p
+    c_p = {} if not c_p else c_p
+
+    planes = [0, 1, 2] if not planes else planes
+
+    super_p = {'pel':   2,
+               'sharp': 1,
+               }
+    analyse_p = {'truemotion': False,
+                 'delta':      1,
+                 'blksize':    16,
+                 'overlap':    8,
+                 }
+
     s = {**super_p, **s_p}
     a = {**analyse_p, **a_p}
-    sup = core.mv.Super(src,**s)
+
+    sup = core.mv.Super(src, **s)
+
     bv = core.mv.Analyse(sup, isb=True, **a)
     fv = core.mv.Analyse(sup, isb=False, **a)
-    bc = core.mv.Compensate(src,sup,bv,**c_p)
-    fc = core.mv.Compensate(src,sup,fv,**c_p)
-    il = core.std.Interleave([fc,src,bc])
+    bc = core.mv.Compensate(src, sup, bv, **c_p)
+    fc = core.mv.Compensate(src, sup, fv, **c_p)
+
+    il = core.std.Interleave([fc, src, bc])
+
     fs = core.flux.SmoothT(il, temporal_threshold=tthr, planes=planes)
-    return core.std.SelectEvery(fs,3,1)
+
+    return core.std.SelectEvery(fs, 3, 1)
 
 #########################
 #mvfrc
@@ -2123,3 +2158,4 @@ def xcUSM(src:vs.VideoNode,blur=None,hip=None,lowp=None,pp=None,plane=[0],mask=N
 
 STPresso = stpresso
 SPresso = spresso
+FluxsmoothTMC = fluxsmooth_tmc
