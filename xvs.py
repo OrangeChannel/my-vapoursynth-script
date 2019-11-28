@@ -131,61 +131,97 @@ def stpresso(clip: vs.VideoNode, limit=3, bias=24, rg_mode=4, tthr=12,
     return core.std.ShufflePlanes(l, [0, 0, 0], colorfamily=vs.YUV)
 
 
-def SPresso(clip=None, limit=2, bias=25, RGmode=4, limitC=4, biasC=50, RGmodeC=0):
-    """
-    SPresso
-    #########################
-    orginal script by Didée
-    #########################
-       SPresso (Spatial Pressdown) is a purely spatial script designed to achieve better
-    compressibility without doing too much harm to the original detail.
-       SPresso was not designed for 1080p processing/encoding; due to its 3x3 kernel
-    it works better on standard definition (SD) content like DVDs and possibly on 720p.
-       On noisy DVD/SD sources, compression gain usually is from 2% to 3% (light settings ->
-    changes almost invisible) up to 10 to 12% (stronger settings -> slight, gentle softening, not very obvious). 
-    ########################
-    clip= Input clip. 
-    limit = 2   Limit the maximum change for any given pixel. 
-    bias = 25   Something like "aggessivity": '20' is a very light setting, '33' is already quite strong. 
-    RGmode = 4  RemoveGrain mode for the luma (Y) channel. The default of "4" is the best in most cases. 
-                       Mode 19 and 20 might work better in other cases; if set to 0, luma will be copied from the input clip. 
-    limitC = 4    Same as limit but for chroma. 
-    biasC = 50   Same as bias but for chroma. 
-    RGmodeC = 0   RemoveGrain mode for the chroma channels (UV) channels; by default the chroma is simply copied from the input clip. 
-                           To process chroma, set RGmodeC=4 (or 19, 20, or any other compatible mode). 
-    ########################
-    Differences:
-    high depth support
-    automatically adjust parameters to fit into different depth
-    you have less choice in RGmode
+# TODO: typehints
+def spresso(clip: vs.VideoNode, limit=2, bias=25, rg_mode=4, limit_c=4,
+            bias_c=50, rg_mode_c=0) -> vs.VideoNode:
+    """TODO: One-line synopsis (<73 char) ending in a '.'.
+
+    spresso (Spatial Pressdown) is a purely spatial script designed to
+    achieve better compressibility without doing too much harm to the
+    original detail.
+
+    spresso was not designed for 1080p processing/encoding; due to its
+    3x3 kernel it works better on standard definition (SD) content like
+    DVDs and possibly on 720p.
+
+    On noisy DVD/SD sources, compression gain usually is from 2% to 3%
+    (light settings -> changes almost invisible) up to 10 to 12%
+    (stronger settings -> slight, gentle softening, not very obvious).
+
+    Differences from original:
+    * high depth support
+    * automatically adjust parameters to fit into different depth
+    * you have less choice in rg_mode
+
+    :param clip: input clip
+        :bit depth: TODO
+        :color family: TODO
+        :float precision: TODO
+        :sample type: TODO
+        :subsampling: TODO
+    :param limit: limit the maximum change for any given pixel
+                  (Default value = 2)
+    :param bias: something like "aggessivity" (Default value = 25)
+        '20' is a very light setting, '33' is already quite strong.
+    :param rg_mode: RemoveGrain mode for the luma (Y) channel
+                    (Default value = 4)
+        The default of "4" is the best in most cases.
+        Mode 19 and 20 might work better in other cases.
+        If set to 0, luma will be copied from the input clip.
+    :param limit_c: same as limit but for chroma (Default value = 4)
+    :param bias_c: same as bias but for chroma (Default value = 50)
+    :param rg_mode_c: RemoveGrain mode for the chroma channels
+                      (Default value = 0)
+        By default the chroma is simply copied from the input clip.
+        To process chroma, set rg_mode_c=4
+        (or 19, 20, or any other compatible mode).
+    :return: processed clip
     """
     depth = clip.format.bits_per_sample
-    LIM1= round(limit*100.0/bias-1.0) if limit>0 else round(100.0/bias)
-    LIM1 = scale(LIM1,depth)
-    LIM2  =1 if limit<0 else limit
-    LIM2 = scale(LIM2,depth)
-    BIA = bias
-    LIM1c= round(limitC*100.0/biasC-1.0) if limit>0 else round(100.0/biasC)
-    LIM1c = scale(LIM1c,depth)
-    LIM2c  =1 if limit<0 else limit
-    LIM2c = scale(LIM2c,depth)
-    BIAc = biasC
-    ###
+
+    lim1 = round(limit * 100.0 / bias - 1.0) if limit > 0 \
+        else round(100.0 / bias)
+    lim1 = scale(lim1, depth)
+
+    lim2 = 1 if limit < 0 else limit
+    lim2 = scale(lim2, depth)
+
+    lim1c = round(limit_c * 100.0 / bias_c - 1.0) if limit > 0 \
+        else round(100.0 / bias_c)
+    lim1c = scale(lim1c, depth)
+
+    lim2c = 1 if limit < 0 else limit
+    lim2c = scale(lim2c, depth)
+
     if limit < 0:
-        expr  = "x y - abs "+str(LIM1)+" < x x " +str(scale(1,depth))+ " x y - x y - abs / * - ?"
+        expr = 'x y - abs ' + str(lim1) + ' < x x ' + str(scale(1, depth)) + \
+               ' x y - x y - abs / * - ?'
     else:
-        expr  =  "x y - abs " +str(scale(0,depth))+ " <= x x "+str(LIM1)+" + y < x "+str(LIM2)+" + x "+str(LIM1)+" - y > x "+str(LIM2)+" - "  + "x " +str(scale(100,depth))+" "+str(BIA)+" - * y "+str(BIA)+" * + "+str(scale(100,depth))+" / ? ? ?"
-    if limitC < 0:
-        exprC  = "x y - abs "+str(LIM1c)+" < x x " +str(scale(1,depth))+ " x y - x y - abs / * - ?"
+        expr = 'x y - abs ' + str(scale(0, depth)) + ' <= x x ' + str(lim1) + \
+               ' + y < x ' + str(lim2) + ' + x ' + str(lim1) + ' - y > x ' + \
+               str(lim2) + ' - x ' + str(scale(100, depth)) + ' ' + \
+               str(bias) + ' - * y ' + str(bias) + ' * + ' + \
+               str(scale(100, depth)) + ' / ? ? ?'
+
+    if limit_c < 0:
+        expr_c = 'x y - abs ' + str(lim1c) + ' < x x ' + \
+                 str(scale(1, depth)) + ' x y - x y - abs / * - ?'
     else:
-        exprC  =  "x y - abs " +str(scale(0,depth))+ " <= x x "+str(LIM1c)+" + y < x "+str(LIM2c)+" + x "+str(LIM1c)+" - y > x "+str(LIM2c)+" - "  + "x " +str(scale(100,depth))+" "+str(BIAc)+" - * y "+str(BIAc)+" * + "+str(scale(100,depth))+" / ? ? ?"
-    ###
-    rg = core.rgvs.RemoveGrain(clip,[RGmode,RGmodeC])
-    Y = core.std.Expr([getplane(clip,0),getplane(rg,0)],expr)
-    U = getplane(clip,1) if RGmodeC==0 else core.std.Expr([getplane(clip,1),bgetplane(rg,1)],exprC)
-    V = getplane(clip,2) if RGmodeC==0 else core.std.Expr([getplane(clip,2),bgetplane(rg,2)],exprC)
-    last = core.std.ShufflePlanes([Y,U,V],[0,0,0], colorfamily=vs.YUV)
-    return last
+        expr_c = 'x y - abs ' + str(scale(0, depth)) + ' <= x x ' + \
+                 str(lim1c) + ' + y < x ' + str(lim2c) + ' + x ' + \
+                 str(lim1c) + ' - y > x ' + str(lim2c) + ' - x ' + \
+                 str(scale(100, depth)) + ' ' + str(bias_c) + ' - * y ' + \
+                 str(bias_c) + ' * + ' + str(scale(100, depth)) + ' / ? ? ?'
+
+    rg = core.rgvs.RemoveGrain(clip, [rg_mode, rg_mode_c])
+
+    y = core.std.Expr([plane(clip, 0), plane(rg, 0)], expr)
+    u = plane(clip, 1) if rg_mode_c == 0 \
+        else core.std.Expr([plane(clip, 1), plane(rg, 1)], expr_c)
+    v = plane(clip, 2) if rg_mode_c == 0 \
+        else core.std.Expr([plane(clip, 2), plane(rg, 2)], expr_c)
+
+    return core.std.ShufflePlanes([y, u, v], [0, 0, 0], colorfamily=vs.YUV)
 
 def STPressoMC(clip=None, limit=3, bias=24, RGmode=4, tthr=12, tlimit=3, tbias=49, back=1,s_p={},a_p={},c_p={}):
     """
@@ -2086,3 +2122,4 @@ def xcUSM(src:vs.VideoNode,blur=None,hip=None,lowp=None,pp=None,plane=[0],mask=N
 
 
 STPresso = stpresso
+SPresso = spresso
