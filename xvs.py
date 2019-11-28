@@ -1,9 +1,26 @@
-from vapoursynth import core
-import vapoursynth as vs
-import mvsfunc as mvf
+"""TODO: One-line module synopsis <73 char ending in a ('.')."""
+from typing import Dict
+
+__all__ = ['stpresso', 'spresso']
+__author__ = 'xyx98'
+__date__ = '27 November 2019'
+__credits__ = """Didée for the original stpresso, spresso, nonlin_usm functions.
+SilaSurfer for original AviSynth fluxsmooth_tmc.
+Bloax for inspiring sharpen_detail.
+mawen1250's AviSynth textsub16 script for inspiring textsub.
+mawen1250 for the original mwenhance.
+Leak and RazorbladeByte for AviSynth's LazyDering.
+HolyWu for original Overlay/InterFrame function.
+Dave <orangechannel@pm.me> for refactoring code.
+"""
+
+import re
+from functools import partial
+
 import havsfunc as haf
-import re,math,functools,sys,os
 import muvsfunc as muf
+import mvsfunc as mvf
+from vsutil import *
 
 
 #main function
