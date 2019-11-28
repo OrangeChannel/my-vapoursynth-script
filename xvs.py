@@ -316,20 +316,38 @@ def stpresso_mc(clip: vs.VideoNode, limit=3, bias=24, rg_mode=4, tthr=12,
 
     return core.std.ShufflePlanes(l, [0, 0, 0], colorfamily=vs.YUV)
 
-def splicev1(clip=[],num=[],den=[],tc_out="tc v1.txt"):
+
+def splicev1(clip: List[vs.VideoNode], num: List[int] = None,
+             den: List[int] = None, tc_out: str = "tc v1.txt"):
+    """Splices clips with different fps and output timecodes v1.
+
+    :param clip: input clips
+        :bit depth: TODO
+        :color family: TODO
+        :float precision: TODO
+        :sample type: TODO
+        :subsampling: TODO
+    :param num: clips' fps numerators
+    :param den: clips' fps denominators
+    :param tc_out: outfile.txt
+    :return: TODO
     """
-    splice clips with different fps and output timecodes v1
-    """
+    num = [] if not num else num
+    den = [] if not den else den
+
     clip_len = len(clip)
     num_len = len(num)
     den_len = len(den)
+
     if clip_len > num_len:
-        for i in range(num_len,clip_len):
+        for i in range(num_len, clip_len):
             num.append(None)
+
     if clip_len > den_len:
-        for i in range(den_len,clip_len):
+        for i in range(den_len, clip_len):
             den.append(None)
-    for i in range(0,clip_len):
+
+    for i in range(clip_len):
         if num[i] is None:
             num[i] = clip[i].fps_num
             den[i] = clip[i].fps_den
@@ -337,23 +355,28 @@ def splicev1(clip=[],num=[],den=[],tc_out="tc v1.txt"):
             if num[i] > 10000:
                 den[i] = 1001
             else:
-                den[i]=1
-    fps=[]
-    for i in range(0,clip_len):
-        fps.append(float(num[i])/den[i])
-    fnum=[i.num_frames for i in clip]
-    for i in range(1,clip_len):
-        fnum[i]+=fnum[i-1]
-    tc = open(tc_out,"w")
-    tc.write("# timecode format v1\nassume "+str(fps[0])+"\n")
-    for i in range(1,clip_len):
-        tc.write(str(fnum[i-1])+","+str(fnum[i]-1)+","+str(fps[i])+"\n")
+                den[i] = 1
+
+    fps = []
+    for i in range(clip_len):
+        fps.append(float(num[i]) / den[i])
+
+    fnum = [i.num_frames for i in clip]
+    for i in range(1, clip_len):
+        fnum[i] += fnum[i - 1]
+
+    tc = open(tc_out, 'w')
+    tc.write('# timecode format v1\nassume ' + str(fps[0]) + '\n')
+    for i in range(1, clip_len):
+        tc.write(str(fnum[i - 1]) + ',' + str(fnum[i] - 1) + ',' +
+                 str(fps[i]) + '\n')
     tc.close()
+
     last = clip[0]
-    for i in range(1,clip_len):
-        last+=clip[i]
-    last=core.std.AssumeFPS(last,fpsnum=num[0],fpsden=den[0])
-    return last
+    for i in range(1, clip_len):
+        last += clip[i]
+
+    return core.std.AssumeFPS(last, fpsnum=num[0], fpsden=den[0])
 
 
 # TODO: typehints
