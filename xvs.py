@@ -430,69 +430,98 @@ def fluxsmooth_tmc(src: vs.VideoNode, tthr=12, s_p: Dict = None,
 
     return core.std.SelectEvery(fs, 3, 1)
 
-#########################
-#mvfrc
-#########################
-#
-#########################
-def mvfrc(input,it=140,scp=15,num=60000,den=1001,preset='fast',
-        pel=2,block=True,flow_mask=None,block_mode=None,
-        blksize = 8,blksizev=8,search=None,truemotion=True,searchparam=2,overlap=0,overlapv=None,
-        dct=0,blend=True,badSAD=10000,badrange=24,divide=0,ml=100,Mblur=15):
+
+# TODO: typehints
+def mvfrc(clip: vs.VideoNode, it=140, scp=15, num: int = 60000,
+          den: int = 1001, preset: str = 'fast', pel=2, block: bool = True,
+          flow_mask=None, block_mode=None, blksize=8, blksizev=8, search=None,
+          truemotion: bool = True, searchparam=2, overlap=0, dct=0,
+          blend: bool = True, bad_sad=10000, badrange=24, divide=0, mblur=15) \
+        -> vs.VideoNode:
+    """Changes fps by mvtools with motion interpolation.
+
+    :param clip: input clip
+        :bit depth: TODO
+        :color family: TODO
+        :float precision: TODO
+        :sample type: TODO
+        :subsampling: TODO
+    :param it: TODO: explain (Default value = 140)
+    :param scp: TODO: explain (Default value = 15)
+    :param num: TODO: explain (Default value = 60000)
+    :param den: TODO: explain (Default value = 1001)
+    :param preset: TODO: explain (Default value = 'fast')
+    :param pel: TODO: explain (Default value = 2)
+    :param block: TODO: explain (Default value = True)
+    :param flow_mask: TODO: explain (Default value = None)
+    :param block_mode: TODO: explain (Default value = None)
+    :param blksize: TODO: explain (Default value = 8)
+    :param blksizev: TODO: explain (Default value = 8)
+    :param search: TODO: explain (Default value = None)
+    :param truemotion: TODO: explain (Default value = True)
+    :param searchparam: TODO: explain (Default value = 2)
+    :param overlap: TODO: explain (Default value = 0)
+    :param dct: TODO: explain (Default value = 0)
+    :param blend: TODO: explain (Default value = True)
+    :param bad_sad: TODO: explain (Default value = 10000)
+    :param badrange: TODO: explain (Default value = 24)
+    :param divide: TODO: explain (Default value = 0)
+    :param mblur: TODO: explain (Default value = 15)
+    :return: processed clip
     """
-    change fps by mvtools with motion interpolation
-    it = thscd1    ;    scp=thscd2/255*100
-    """
-    funcName = 'mvfrc'
-    if not isinstance(input, vs.VideoNode):
-        raise TypeError(funcName + ': This is not a clip!')
-#############
+    if not isinstance(clip, vs.VideoNode):
+        raise TypeError('mvfrc: This is not a clip!')
+
     if preset == 'fast':
-        pnum=0
+        pnum = 0
     elif preset == 'medium':
-        pnum=1
+        pnum = 1
     elif preset == 'slow':
-        pnum=2
+        pnum = 2
     else:
-        raise TypeError(funcName + r":preset should be fast\ medium\slow'")
-    overlapv = overlap
-#############
-    if search is None : search = [0,3,3][pnum]
-    if block_mode is None : block_mode = [0,0,3][pnum]
-    if flow_mask is None : flow_mask = [0,0,2][pnum]
-#############
-    analParams = {
-        'overlap' : overlap,
-        'overlapv':overlapv,
-        'search' : search,
-        'dct':dct,
-        'truemotion' : truemotion,
-        'blksize' : blksize,
-        'blksizev':blksizev,
-        'searchparam':searchparam,
-        'badsad':badSAD,
-        'badrange':badrange,
-        'divide':divide
-        }
-############
-    #block or flow Params 
-    bofp = {
-        'thscd1':it,
-        'thscd2':int(scp*255/100),
-        'blend':blend,
-        'num':num,
-        'den':den
-        }
-############
-    sup = core.mv.Super(input, pel=pel,sharp=2, rfilter=4)
-    bvec = core.mv.Analyse(sup, isb=True, **analParams)
-    fvec = core.mv.Analyse(sup, isb=False, **analParams)
-    if input.fps_num/input.fps_den > num/den:
-        input = core.mv.FlowBlur(input, sup, bvec, fvec, blur=Mblur)
-    if block == True:
-        clip =  core.mv.BlockFPS(input, sup, bvec, fvec,**bofp,mode=block_mode)
+        raise TypeError('mvfrc: preset should be fast, medium, or slow')
+
+    if search is None:
+        search = [0, 3, 3][pnum]
+    if block_mode is None:
+        block_mode = [0, 0, 3][pnum]
+    if flow_mask is None:
+        flow_mask = [0, 0, 2][pnum]
+
+    anal_params = {
+        'overlap':     overlap,
+        'overlapv':    overlap,
+        'search':      search,
+        'dct':         dct,
+        'truemotion':  truemotion,
+        'blksize':     blksize,
+        'blksizev':    blksizev,
+        'searchparam': searchparam,
+        'badsad':      bad_sad,
+        'badrange':    badrange,
+        'divide':      divide
+    }
+
+    bofp = {  # block or flow params
+        'thscd1': it,
+        'thscd2': int(scp * 255 / 100),
+        'blend':  blend,
+        'num':    num,
+        'den':    den
+    }
+
+    sup = core.mv.Super(clip, pel=pel, sharp=2, rfilter=4)
+    bvec = core.mv.Analyse(sup, isb=True, **anal_params)
+    fvec = core.mv.Analyse(sup, isb=False, **anal_params)
+
+    if clip.fps_num / clip.fps_den > num / den:
+        clip = core.mv.FlowBlur(clip, sup, bvec, fvec, blur=mblur)
+
+    if block:
+        clip = core.mv.BlockFPS(clip, sup, bvec, fvec, **bofp, mode=block_mode)
     else:
-        clip = core.mv.FlowFPS(input, sup, bvec, fvec,**bofp,mask=flow_mask)
+        clip = core.mv.FlowFPS(clip, sup, bvec, fvec, **bofp, mask=flow_mask)
+
     return clip
 
 def xsUSM(src=None,blur=11,limit=1,elast=4,maskclip=None,plane=[0]):
