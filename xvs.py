@@ -23,82 +23,112 @@ import mvsfunc as mvf
 from vsutil import *
 
 
-#main function
+# TODO: typehints
+def stpresso(clip: vs.VideoNode, limit=3, bias=24, rg_mode=4, tthr=12,
+             tlimit=3, tbias=49, back=1) -> vs.VideoNode:
+    """TODO: One-line synopsis (<73 char) ending in a '.'.
 
-def STPresso(clip=None, limit=3, bias=24, RGmode=4, tthr=12, tlimit=3, tbias=49, back=1):
-    """
-    STPresso
-    ####################
-    orginal script by Didée
-    ####################
-    The goal of STPresso (Spatio-Temporal Pressdown) is
+    The goal of stpresso (Spatio-Temporal Pressdown) is
     to "dampen the grain just a little, to keep the original look,
     and make it fast". In other words it makes a video more
     compressible without losing detail and original grain structure.
-    ####################
-    cllp = Input clip. 
-    limit = 3     Spatial limit: the spatial part won't change a pixel more than this. 
-    bias = 24     The percentage of the spatial filter that will apply. 
-    RGmode = 4 The spatial filter is RemoveGrain, this is its mode. 
-    tthr = 12  Temporal threshold for FluxSmooth; Can be set "a good bit bigger" than usually. 
-    tlimit = 3  The temporal filter won't change a pixel more than this. 
-    tbias = 49  The percentage of the temporal filter that will apply. 
-    back = 1  After all changes have been calculated, reduce all pixel changes by this value. (Shift "back" towards original value) 
-    ####################
-    STPresso is recommended for content up to 720p because
+
+    stpresso is recommended for content up to 720p because
     "the spatial part might be a bit too narrow for 1080p encoding
-    (since it's only a 3x3 kernel)". 
-    ####################
-    Differences:
-    high depth support
-    automatically adjust parameters to fit into different depth
-    you have less choice in RGmode
+    (since it's only a 3x3 kernel)".
+
+    Differences from original:
+    * high depth support
+    * automatically adjust parameters to fit into different depth
+    * you have less choice in rg_mode
+
+    :param clip: input clip
+        :bit depth: TODO
+        :color family: TODO
+        :float precision: TODO
+        :sample type: TODO
+        :subsampling: TODO
+    :param limit: spatial limit: the spatial part won't change a
+                  pixel more than this (Default value = 3)
+    :param bias: percentage of the spatial filter that will apply
+                 (Default value = 24)
+    :param rg_mode: RemoveGrain mode to use (Default value = 4)
+    :param tthr: temporal threshold for FluxSmooth
+                 (Default value = 12)
+        Can be set "a good bit bigger" than usual.
+    :param tlimit: temporal filter won't change a pixel more than
+                   this (Default value = 3)
+    :param tbias: percentage of the temporal filter that will apply
+                  (Default value = 49)
+    :param back: after all changes have been calculated,
+                 reduce all pixel changes by this value
+                 (Default value = 1)
+        Shift "back" towards original value.
+    :return: processed clip
     """
     depth = clip.format.bits_per_sample
-    LIM1= round(limit*100.0/bias-1.0) if limit>0 else round(100.0/bias)
-    LIM1 = scale(LIM1,depth)
-    #(limit>0) ? round(limit*100.0/bias-1.0) :  round(100.0/bias)
-    LIM2  =1 if limit<0 else limit
-    LIM2 = scale(LIM2,depth)
-    #(limit<0) ? 1 : limit
-    BIA   = bias
-    BK = scale(back,depth)
-    TBIA   = bias
-    TLIM1  = round(tlimit*100.0/tbias-1.0) if tlimit>0 else round(100.0/tbias)
-    TLIM1 = scale(TLIM1,depth)
-    #(tlimit>0) ? string( round(tlimit*100.0/tbias-1.0) ) : string( round(100.0/tbias) )
-    TLIM2  = 1 if tlimit<0 else tlimit
-    TLIM2 = scale(TLIM2,depth)
-    #(tlimit<0) ? "1" : string(tlimit)
-    bzz = core.rgvs.RemoveGrain(clip,RGmode)
-    ####
+
+    lim1 = round(limit * 100.0 / bias - 1.0) if limit > 0 \
+        else round(100.0 / bias)
+    lim1 = scale(lim1, depth)
+
+    lim2 = 1 if limit < 0 else limit
+    lim2 = scale(lim2, depth)
+
+    bk = scale(back, depth)
+
+    tlim1 = round(tlimit * 100.0 / tbias - 1.0) if tlimit > 0 \
+        else round(100.0 / tbias)
+    tlim1 = scale(tlim1, depth)
+
+    tlim2 = 1 if tlimit < 0 else tlimit
+    tlim2 = scale(tlim2, depth)
+
+    bzz = core.rgvs.RemoveGrain(clip, rg_mode)
+
     if limit < 0:
-        expr  = "x y - abs "+str(LIM1)+" < x x " +str(scale(1,depth))+ " x y - x y - abs / * - ?"
-        texpr  = "x y - abs "+str(TLIM1)+" < x x " +str(scale(1,depth))+ " x y - x y - abs / * - ?"
+        expr = 'x y - abs ' + str(lim1) + ' < x x ' + str(scale(1, depth)) + \
+               ' x y - x y - abs / * - ?'
+
+        texpr = 'x y - abs ' + str(tlim1) + ' < x x ' + \
+                str(scale(1, depth)) + ' x y - x y - abs / * - ?'
     else:
-        expr  =  "x y - abs " +str(scale(1,depth))+ " < x x "+str(LIM1)+" + y < x "+str(LIM2)+" + x "+str(LIM1)+" - y > x "+str(LIM2)+" - "  + "x " +str(scale(100,depth))+" "+str(BIA)+" - * y "+str(BIA)+" * + "+str(scale(100,depth))+" / ? ? ?"
-        texpr  =  "x y - abs " +str(scale(1,depth))+ " < x x "+str(TLIM1)+" + y < x "+str(TLIM2)+" + x "+str(TLIM1)+" - y > x "+str(TLIM2)+" - "  + "x " +str(scale(100,depth))+" "+str(TBIA)+" - * y "+str(TBIA)+" * + "+str(scale(100,depth))+" / ? ? ?"
-    L=[]
-    for i in range(0,3):
-        C   = core.std.ShufflePlanes(clip, i, colorfamily=vs.GRAY)
-        B = core.std.ShufflePlanes(bzz, i, colorfamily=vs.GRAY)
-        O = core.std.Expr([C,B],expr)
-        L.append(O)
-    if tthr!=0:
-        st=core.flux.SmoothT(bzz, temporal_threshold=tthr, planes=[0, 1, 2])
-        diff = core.std.MakeDiff(bzz,st,[0,1,2])
-        last = core.std.ShufflePlanes(L, [0,0,0], colorfamily=vs.YUV)
-        diff2 = core.std.MakeDiff(last,diff,[0,1,2])
-        for i in range(0,3):
-            c=L[i]
-            b=core.std.ShufflePlanes(diff2, i, colorfamily=vs.GRAY)
-            L[i] = core.std.Expr([c,b],texpr)
-    if back!=0:
-        bexpr="x "+str(BK)+" + y < x "+str(BK)+" + x "+str(BK)+" - y > x "+str(BK)+" - y ? ?"
-        Y = core.std.ShufflePlanes(clip, 0, colorfamily=vs.GRAY)
-        L[0] = core.std.Expr([L[0],Y],bexpr)
-    output=core.std.ShufflePlanes(L, [0,0,0], colorfamily=vs.YUV)
-    return output
+        expr = 'x y - abs ' + str(scale(1, depth)) + ' < x x ' + str(lim1) + \
+               ' + y < x ' + str(lim2) + ' + x ' + str(lim1) + ' - y > x ' + \
+               str(lim2) + ' - x ' + str(scale(100, depth)) + ' ' + \
+               str(bias) + ' - * y ' + str(bias) + ' * + ' + \
+               str(scale(100, depth)) + ' / ? ? ?'
+
+        texpr = 'x y - abs ' + str(scale(1, depth)) + ' < x x ' + \
+                str(tlim1) + ' + y < x ' + str(tlim2) + ' + x ' + \
+                str(tlim1) + ' - y > x ' + str(tlim2) + ' - x ' + \
+                str(scale(100, depth)) + ' ' + str(bias) + ' - * y ' + \
+                str(bias) + ' * + ' + str(scale(100, depth)) + ' / ? ? ?'
+
+    l = []  # TODO: rename ambiguous variables
+    for i in range(3):
+        c = core.std.ShufflePlanes(clip, i, colorfamily=vs.GRAY)
+        b = core.std.ShufflePlanes(bzz, i, colorfamily=vs.GRAY)
+        o = core.std.Expr([c, b], expr)
+        l.append(o)
+
+    if tthr:
+        st = core.flux.SmoothT(bzz, temporal_threshold=tthr, planes=[0, 1, 2])
+        diff = core.std.MakeDiff(bzz, st, [0, 1, 2])
+        last = core.std.ShufflePlanes(l, [0, 0, 0], colorfamily=vs.YUV)
+        diff2 = core.std.MakeDiff(last, diff, [0, 1, 2])
+        for i in range(3):
+            c = l[i]
+            b = core.std.ShufflePlanes(diff2, i, colorfamily=vs.GRAY)
+            l[i] = core.std.Expr([c, b], texpr)
+
+    if back:
+        bexpr = 'x ' + str(bk) + ' + y < x ' + str(bk) + ' + x ' + str(bk) + \
+                ' - y > x ' + str(bk) + ' - y ? ?'
+        y = core.std.ShufflePlanes(clip, 0, colorfamily=vs.GRAY)
+        l[0] = core.std.Expr([l[0], y], bexpr)
+
+    return core.std.ShufflePlanes(l, [0, 0, 0], colorfamily=vs.YUV)
 
 
 def SPresso(clip=None, limit=2, bias=25, RGmode=4, limitC=4, biasC=50, RGmodeC=0):
@@ -2051,3 +2081,8 @@ def xcUSM(src:vs.VideoNode,blur=None,hip=None,lowp=None,pp=None,plane=[0],mask=N
         planes[i]=usm_core(planes[i])
 
     return core.std.ShufflePlanes(planes,[0]*num_planes,src.format.color_family)
+
+# Backwards compatibility -----------------------------------------------------
+
+
+STPresso = stpresso
