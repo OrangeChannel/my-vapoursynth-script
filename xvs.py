@@ -596,32 +596,51 @@ def xs_usm(src: vs.VideoNode = None,
 
     return core.std.ShufflePlanes(li, [0, 0, 0], vs.YUV)
 
-def SharpenDetail(src=None,limit=4,thr=32):
-    """
-    SharpenDetail
-    ------------------------------------
+
+# TODO: typehints
+def sharpen_detail(src: vs.VideoNode, limit=4, thr=32) -> vs.VideoNode:
+    """TODO: One-line synopsis (<73 char) ending in a '.'.
+
     ideas comes from : https://forum.doom9.org/showthread.php?t=163598
-    but it's not a port,because their is no asharp in vapoursynth,so I adjust sharpener
+    but it's not a port, because their is no asharp in VapourSynth,
+    so I adjust sharpener
+
+    :param src: input clip
+        :bit depth: TODO
+        :color family: YUV, GRAY
+        :float precision: TODO
+        :sample type: TODO
+        :subsampling: TODO
+    :param limit:
+    :param thr:
+    :return: processed clip
     """
-    cFormat=src.format.color_family
-    depth=src.format.bits_per_sample
-    if cFormat==vs.YUV:
-        clip=getplane(src,0)
-    elif cFormat==vs.GRAY:
-        clip=src
+    c_format = src.format.color_family
+    depth = src.format.bits_per_sample
+
+    if c_format == vs.YUV:
+        clip = plane(src, 0)
+    elif c_format == vs.GRAY:
+        clip = src
     else:
-        raise TypeError("")
-    thr = thr*depth/8
-    bia = 128*depth/8
-    blur = core.rgvs.RemoveGrain(clip,19)
-    mask = core.std.Expr([clip,blur],"x y - "+str(thr)+" * "+str(bia)+" +")
-    mask = core.rgvs.RemoveGrain(mask,2)
-    mask = inpand(mask,mode="both")
+        raise TypeError('sharpen_detail: only supports YUV/GRAY clips')
+
+    thr = thr * depth / 8
+    bia = 128 * depth / 8
+    blur = core.rgvs.RemoveGrain(clip, 19)
+
+    mask = core.std.Expr([clip, blur], 'x y - ' + str(thr) + ' * ' +
+                         str(bia) + ' +')
+    mask = core.rgvs.RemoveGrain(mask, 2)
+    mask = inpand(mask, mode='both')
     mask = core.std.Deflate(mask)
-    sharp = xsUSM(clip,blur=[1]*25,limit=limit,maskclip=None)
-    last = core.std.MaskedMerge(sharp,clip,mask,planes=0)
-    if cFormat==vs.YUV:
-        last = core.std.ShufflePlanes([last,src],[0,1,2], vs.YUV)
+
+    sharp = xs_usm(clip, blur=[1] * 25, limit=limit)
+    last = core.std.MaskedMerge(sharp, clip, mask, planes=0)
+
+    if c_format == vs.YUV:
+        return core.std.ShufflePlanes([last, src], [0, 1, 2], vs.YUV)
+
     return last
 
 
@@ -2278,3 +2297,4 @@ SPresso = spresso
 STPressoMC = stpresso_mc
 FluxsmoothTMC = fluxsmooth_tmc
 xsUSM = xs_usm
+SharpenDetail = sharpen_detail
